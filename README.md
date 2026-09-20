@@ -4,37 +4,49 @@
 
 # Athlefit
 
-Athlefit is a React Native app for discovering nearby sports venues and creating bookings. This legacy project is being modernized as a portfolio case study with a Spring Boot API, PostgreSQL, and Firebase Authentication.
+Athlefit is a React Native app for discovering nearby sports venues and booking a court. Originally a university thesis project backed by Cloud Firestore, it is being modernized as a portfolio case study: a Spring Boot API owns the business rules, PostgreSQL owns the data, and Firebase provides identity only.
+
+**Backend repository:** [alicebey/athlefit-backend](https://github.com/alicebey/athlefit-backend)
 
 ## Highlights
 
-- Email/password registration and login with Firebase Authentication
-- Spring Boot REST API with verified Firebase ID tokens
-- PostgreSQL persistence and versioned Flyway migrations
-- Server-side price, operating-hour, and booking-conflict validation
-- Geoapify-assisted venue onboarding with confirmed PostgreSQL schedule snapshots
-- In-app admin venue search, review, pricing, capacity, and publishing
-- Multi-sport pricing with automatic court assignment
-- Confirmed-booking details and cancellation with explicit confirmation
-- Sports preference onboarding, search, nearby recommendations, and maps
-- Persisted mobile session with Zustand and MMKV
+- **Pick a free slot, not a guess.** The booking screen shows hourly start times for the chosen sport, date and duration, with the number of courts still free.
+- **Payments with a held court.** A new booking holds its court for 30 minutes while the customer transfers the money; they submit the transfer details and the venue owner confirms or rejects them. Unpaid bookings expire automatically.
+- **Cancellation rules people can see.** Unpaid bookings can be cancelled any time before the start; paid ones until 2 hours before. Cancelled-after-paying bookings are flagged for refund.
+- **A workspace for venue owners.** Owners review payments and edit opening hours, visibility, transfer account, prices and court counts. Admins assign owners and onboard venues from Geoapify.
+- **Nearby that works.** Live location, venues sorted by distance with a map that fits you and the closest venues.
+- **Correct times, always.** All booking times are shown in venue time (WIB), whatever the phone's own time zone is.
+- Email/password authentication with Firebase; every API call carries a verified ID token
+- Server-side price, operating-hour, court-assignment and conflict validation
+- PostgreSQL persistence with versioned Flyway migrations
+- Persisted session with Zustand and MMKV; Jest tests for services, screens and utilities
 
 ## Architecture
 
 ```text
 React Native app
+  screens -> src/Service/*  --fetch + Firebase ID token-->  Spring Boot REST API
+                                                              |-- PostgreSQL (users, venues,
+                                                              |   sports, courts, bookings)
+                                                              |-- Firebase JWT verification
+                                                              `-- Geoapify (admin onboarding only)
   |-- Firebase Authentication (identity only)
-  |-- Spring Boot REST API (profiles, venues, bookings)
-          |-- PostgreSQL
-          |-- Firebase ID-token verification
-          |-- Geoapify venue import during admin onboarding
+  |-- Zustand + MMKV session
+  `-- Maps, geolocation, phone/WhatsApp deep links
 ```
 
-Cloud Firestore is no longer used by the app. The Spring Boot project lives locally at:
+Firebase handles identity; everything else — profiles, venues, prices, courts, availability, payments and bookings — is owned by the backend. Cloud Firestore is no longer used.
+
+### Booking lifecycle
 
 ```text
-/Users/eki/React Native/Backend/Althefit-macro
+Reserve a slot ──> PENDING_PAYMENT ──submit transfer──> WAITING_CONFIRMATION ──owner confirms──> CONFIRMED
+                     │ held 30 min                         │ owner rejects
+                     └──> EXPIRED (court released)          └──> CANCELLED
+        customer cancels: unpaid any time before start, paid until 2 h before ──> CANCELLED (refund flagged)
 ```
+
+The server is authoritative: it calculates the price, validates the venue's opening hours in Asia/Jakarta, assigns a free court, and a PostgreSQL exclusion constraint makes double booking impossible.
 
 See [AGENTS.md](AGENTS.md) for the detailed architecture and API contract.
 
@@ -59,8 +71,10 @@ See [AGENTS.md](AGENTS.md) for the detailed architecture and API contract.
 
 ### 1. Start PostgreSQL and the backend
 
+Clone the [backend repository](https://github.com/alicebey/athlefit-backend) next to this project, then:
+
 ```bash
-cd "/Users/eki/React Native/Backend/Althefit-macro"
+cd athlefit-backend
 docker compose up -d
 ./mvnw spring-boot:run
 ```
@@ -87,7 +101,6 @@ These local configuration files are excluded from Git.
 ### 3. Run Android
 
 ```bash
-cd "/Users/eki/React Native/athlefit-main"
 nvm use
 npm ci
 npm run android
@@ -104,10 +117,9 @@ npm test -- --runInBand
 npm run lint
 ```
 
-Backend:
+Backend (in the backend repository):
 
 ```bash
-cd "/Users/eki/React Native/Backend/Althefit-macro"
 ./mvnw test
 ```
 
@@ -118,16 +130,19 @@ cd "/Users/eki/React Native/Backend/Althefit-macro"
 - A venue can offer multiple sports, each with its own hourly price and court count. The backend assigns court numbers automatically.
 - The API computes booking prices and PostgreSQL prevents overlapping confirmed bookings on the same court.
 - Geoapify venue onboarding and required backend environment variables are documented in the backend `docs/VENUE_ONBOARDING.md`.
-- Admin UIDs see **Manage Venues** on the Profile screen; regular users never see the onboarding UI.
+- Roles come from `GET /api/v1/admin/status`. Owners and admins see **My venues** on the Profile screen; admins also see **Add a venue**. Regular users never see either.
+- Payments are manual bank transfers verified by the venue owner. There is no payment gateway, receipt upload, or refund tracking yet.
+- Booking times are sent and displayed in venue time (`+07:00`); never format them with the device's own time zone.
 - The current base URL and Android cleartext permission are for local debug use only. Production should use HTTPS and environment-specific configuration.
 
 ## Roadmap
 
 - [x] Add no-card Geoapify venue discovery, schedule confirmation, and Swagger onboarding
 - [x] Add an admin venue onboarding screen
-- [ ] Add venue editing/deactivation and a richer owner dashboard
+- [x] Add venue editing/deactivation and an owner dashboard with payment review
 - [x] Add booking cancellation to the mobile UI
 - [x] Improve loading, empty, offline, and permission-denied states
+- [x] Add slot availability, manual payments and cancellation rules
 - [ ] Add integration tests using PostgreSQL/Testcontainers
 - [ ] Configure Firebase and backend connectivity for iOS
 - [ ] Move API URLs to build-time development/staging/production configuration
@@ -138,4 +153,4 @@ cd "/Users/eki/React Native/Backend/Althefit-macro"
 
 - [AGENTS.md](AGENTS.md): shared coding-agent context and mobile/backend contract
 - [CLAUDE.md](CLAUDE.md): Claude Code entry point importing the shared guide
-- Backend `README.md`: API setup, endpoints, schema, and security notes
+- [Backend repository](https://github.com/alicebey/athlefit-backend): API setup, endpoints, schema, and security notes

@@ -1,162 +1,176 @@
 # Athlefit Project Guide
 
-This file is the source of truth for coding-agent project context. Keep it concise and update it when architecture, Firebase data shapes, or development commands change.
+Read this file first. It is the concise source of truth for coding agents working on the Athlefit mobile app.
 
 ## Project Snapshot
 
-- Athlefit is a legacy bare React Native mobile app for discovering and booking sports venues.
-- App/package identity: JavaScript app name `athlete`; Android application ID `com.athlete`.
-- Core versions: React Native 0.71.1, React 18.2, mixed JavaScript/TypeScript.
-- There is no custom backend, REST API, GraphQL API, or server code in this folder.
-- The mobile client talks directly to Firebase Authentication and Cloud Firestore.
-- `@react-native-firebase/storage` is installed but currently unused.
-- Local persisted session state uses Zustand + encrypted MMKV.
-- Navigation uses React Navigation stack plus a three-tab main area.
+- Bare React Native 0.71.1 app; React 18.2; mostly JavaScript.
+- JavaScript app name: `athlete`; Android application ID: `com.athlete`.
+- Mobile root: `/Users/eki/React Native/athlefit-main`.
+- Backend root: `/Users/eki/React Native/Backend/Althefit-macro`.
+- Firebase Authentication handles identity only. Firestore and Firebase Storage are not used.
+- Spring Boot owns profiles, venues, booking rules, and PostgreSQL access.
+- Geoapify supplies venue candidates during admin onboarding; confirmed details and hours are stored in PostgreSQL.
+- Zustand + MMKV persist mobile session data.
 
 ## Development Commands
 
-Use Node 16 for this legacy dependency set. `.nvmrc` pins the installed development version and `.node-version` retains compatibility with other version managers.
+Use Node 16.20.2 (`.nvmrc` and `.node-version`).
 
 ```bash
+# Database and API
+cd "/Users/eki/React Native/Backend/Althefit-macro"
+docker compose up -d
+./mvnw spring-boot:run
+
+# Mobile, in another terminal
+cd "/Users/eki/React Native/athlefit-main"
 nvm use
 npm ci
 npm start
 npm run android
 ```
 
-- `npm start`: Metro only.
-- `npm run android`: build, install, and open the Android app.
-- `npm run ios`: run iOS; CocoaPods and a valid Firebase iOS configuration are prerequisites.
-- `npm test`: Jest preset; coverage is currently only the generated smoke test.
-- `npm run lint`: ESLint.
-- `npm run apk_release`: creates an unsigned release APK; configure a private production keystore outside Git before publishing.
+Checks:
 
-Android config currently expects SDK/compile/target 33, Build Tools 33.0.0, NDK 23.1.7779620, Gradle 7.5.1, Android Gradle Plugin 7.3.1, and Java 17 works in the current development environment.
+```bash
+npm test -- --runInBand
+npm run lint
+cd "/Users/eki/React Native/Backend/Althefit-macro" && ./mvnw test
+```
 
-## Architecture Map
+Android expects compile/target SDK 33, Build Tools 33.0.0, NDK 23.1.7779620, Gradle 7.5.1, Android Gradle Plugin 7.3.1, and Java 17.
 
-- `index.js` registers the app; `App.js` requests location and renders navigation.
-- `src/Router/index.js` owns all stack and bottom-tab routes.
-- `src/Screen/` contains feature screens; each screen keeps styles in a sibling `styles.js`.
-- `src/Component/` contains shared UI primitives such as `Button`, `Input`, `FieldCard`, and `LoadingOverlay`.
-- `src/Service/sessionStore.js` is the persisted Zustand session store.
-- `src/Storage/MMKVStoragePersistHelper.js` adapts MMKV for Zustand persistence.
-- `src/Utils/` contains fonts, responsive sizing, distance, currency, regex, and loading helpers.
-- A local-only `android/app/google-services.json` configures Firebase on Android and is intentionally ignored by Git.
-- A local-only `android/app/src/main/assets/appcenter-config.json` exists but App Center is not an installed dependency; it is ignored by Git.
-- No `GoogleService-Info.plist` is present, so Firebase is not currently configured for iOS.
+## Runtime Architecture
 
-## Navigation and Main Flow
+```text
+index.js -> App.js -> src/Router
+                         |-- auth/onboarding screens
+                         |-- Home / Order / Nearby tabs
+                         |-- venue and booking details
 
-Stack routes:
+Screens -> src/Service/* -> Spring Boot REST API -> PostgreSQL
+        -> Firebase Auth -> Firebase ID token -> API verification
+        -> Zustand session store -> MMKV
+        -> location, maps, and optional WhatsApp deep links
+```
 
-`Splash -> Landing -> Login/Signup -> Starter -> Main`
+Service modules:
 
-Additional stack screens: `DetailMenu`, `DetailField`, `OrderField`, `Profile`, `Change Password`, `Detail Order`, and `SearchField`.
+- `src/Service/apiClient.js`: fetch wrapper and Firebase Bearer token.
+- `src/Service/userService.js`: current profile reads/updates.
+- `src/Service/venueService.js`: public venue reads, sports list, slot availability, multi-sport helpers (`offersSport`, `withPrimarySport`).
+- `src/Service/bookingService.js`: current user's bookings, creation, manual payment submission, cancellation, status labels.
+- `src/Service/ownerService.js`: owner/admin venue management, venue bookings, payment confirm/reject, owner assignment.
+- `src/Service/adminVenueService.js`: admin status, Geoapify search, validation, and publishing.
+- `src/Service/sessionStore.js`: local UI/session state.
+- `src/Config/api.js`: development API base URL.
+- `src/Utils/VenueTime.js`: format timestamps in venue time (WIB, +07:00) regardless of device time zone. Never format booking times with `new Date(...)`/device time.
+- `src/Utils/Sports.js`: `useSports()` loads sports from the API (fallback list mirrors the seed) and maps slugs to icons.
 
-`Main` contains three tabs:
+The services map backend DTOs to the old screen field names. This compatibility layer avoids a large UI rewrite; change it deliberately if backend response fields change.
 
-- `Home`: sport categories, recommendations, venue search, and profile entry.
-- `Order`: current/future bookings for the logged-in user.
+## Authentication and Session Flow
+
+- Signup creates an email/password Firebase user, updates the Firebase display name, then creates/updates `/api/v1/users/me`.
+- Login is email/password only. Phone login was removed because the legacy flow queried user records to discover an email address.
+- Every private API request sends `Authorization: Bearer <Firebase ID token>`.
+- Splash checks the actual Firebase session and refreshes the profile from the API before routing.
+- Profile name and password updates still update Firebase Auth where appropriate; profile data also updates the API.
+- Logout signs out of Firebase and clears Zustand/MMKV state.
+- Login's “Forgot Password” action opens a dedicated screen and sends a Firebase password-reset email to the validated email entered in the form.
+
+## API Contract Used by Mobile
+
+Base URLs:
+
+- Android emulator: `http://10.0.2.2:8080`
+- iOS simulator/local default: `http://localhost:8080`
+
+Endpoints:
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/v1/sports` | Public | List sports |
+| GET | `/api/v1/venues?category={slug}` | Public | List/filter venues |
+| GET | `/api/v1/venues/{id}` | Public | Venue detail (optional `?sport=`) |
+| GET | `/api/v1/venues/{id}/availability?sport=&date=&durationHours=` | Public | Bookable start slots for a WIB date |
+| GET | `/api/v1/users/me` | Firebase token | Get or create profile |
+| PATCH | `/api/v1/users/me` | Firebase token | Update name, phone, favorite sport |
+| GET | `/api/v1/bookings/me` | Firebase token | Current user's bookings |
+| POST | `/api/v1/bookings` | Firebase token | Reserve a court (`PENDING_PAYMENT`) |
+| POST | `/api/v1/bookings/{id}/payment` | Firebase token | Submit transfer details (`WAITING_CONFIRMATION`) |
+| GET | `/api/v1/bookings/{id}` | Firebase token | Owned booking detail |
+| PATCH | `/api/v1/bookings/{id}/cancel` | Firebase token | Cancel owned booking |
+| GET | `/api/v1/admin/status` | Firebase token | Return `{admin, owner}` roles |
+| GET/PATCH | `/api/v1/owner/venues[/{id}]` | Owner or admin | List/read/update managed venues |
+| PUT | `/api/v1/owner/venues/{id}/sports/{slug}` | Owner or admin | Upsert sport price and court count |
+| GET | `/api/v1/owner/venues/{id}/bookings` | Owner or admin | Venue bookings |
+| PATCH | `/api/v1/owner/bookings/{id}/confirm-payment` / `reject-payment` | Owner or admin | Review manual payments |
+| PUT | `/api/v1/admin/venues/{id}/owner` | Admin UID | Assign venue owner by email |
+| GET | `/api/v1/admin/geoapify-places/search` | Admin UID | Search onboarding candidates |
+| POST | `/api/v1/admin/venues` | Admin UID | Publish a reviewed venue configuration |
+
+Create booking body:
+
+```json
+{
+  "venueId": "uuid",
+  "sportSlug": "badminton",
+  "startAt": "2026-09-01T10:00:00+07:00",
+  "durationHours": 2
+}
+```
+
+The backend calculates total price, validates stored operating hours, automatically assigns an available court, and rejects the booking when all configured courts are occupied. Never reintroduce client-authoritative pricing or court selection logic in the client.
+
+`OrderField` loads the availability endpoint and sends the selected slot's `startAt` string unchanged (it already carries `+07:00`).
+
+Booking lifecycle shown in the app: `PENDING_PAYMENT` (30-minute window; `DetailOrder` shows the venue's bank account and a payer form) → `WAITING_CONFIRMATION` → `CONFIRMED`; or `EXPIRED` / `CANCELLED`. Unpaid bookings can be cancelled any time before start, paid/submitted ones until 2 hours before start (server returns `cancellable` and `cancellableUntil`; the app only displays them).
+
+## Navigation and Data Conventions
+
+Stack flow: `Splash -> Landing -> Login/Signup -> Starter -> Main`.
+
+Additional screens: `DetailMenu`, `DetailField`, `OrderField` (sport/date/duration/slot picker), `Profile`, `Change Password`, `Forgot Password`, `Detail Order` (status, payment, cancellation), `SearchField`, owner/admin `Owner Venues` → `Owner Venue` (Bookings tab: review payments; Settings tab: visibility, hours, transfer account, sports/courts, admin-only owner assignment), and admin-only `Admin Venues` (Geoapify onboarding).
+
+`Main` tabs:
+
+- `Home`: categories, recommendations, and venue search.
+- `Order`: Upcoming (active, not finished) and History tabs.
 - `Nearby`: venue markers on Google Maps.
+- `Profile`: account details, sport preference, password, logout, "My venues" (owners/admins) and "Add a venue" (admins).
 
-The splash decision is based on persisted Zustand values, not a fresh Firebase auth-state check:
+Legacy venue keys expected by screens are `location_name`, `location_address`, `location_map`, `open_day`, `open_time`, `close_time`, `image_url`, `phone`, `rating`, `category`, `hourly_rate`, and `court_count`. `venueService.js` owns this mapping, expands relative backend image URLs, and maps Geoapify/OpenStreetMap attribution fields for the detail screen.
 
-- `isLogin=false` -> `Landing`
-- logged in with no category -> `Starter`
-- logged in with a category -> `Main`
+`GET /venues` returns each venue once with `sports[]` (mapped to `sports: [{slug, name, hourly_rate, court_count}]`); use `item.id` as a key safely.
 
-## Firebase Usage and Data Shapes
+Bookings keep `order_time.seconds`/`end_time.seconds` for sorting, plus `start_at`/`end_at` (WIB strings) for display and payment/cancellation fields (`payment_deadline`, `payment_account`, `payer_*`, `cancellable`, `cancellable_until`, `refund_required`, `customer`).
 
-Firebase is the app's backend-as-a-service. Calls are made directly inside screens rather than through a repository/service layer.
+## Local Configuration and Secrets
 
-### Authentication
+- `android/app/google-services.json` is required locally and ignored by Git.
+- `android/local.properties` contains `sdk.dir` and `MAPS_API_KEY`; it is ignored by Git.
+- No `GoogleService-Info.plist` is present, so Firebase is not configured for iOS yet.
+- Never commit Firebase service accounts, signing keys, `.env`, Maps keys, or production credentials.
+- Firebase client configuration is not a server secret, but its APIs/keys still need proper restrictions.
 
-- Email/password signup and login.
-- Phone-number login is implemented by querying Firestore `users.phone` to find the corresponding email, then using email/password auth.
-- Profile display name and password updates use Firebase Auth.
-- Logout signs out from Firebase Auth and clears the persisted local session.
-- The "Forget Password" button has no behavior yet.
+## Current Limits
 
-### Firestore `users`
-
-Documents use numeric string IDs such as `"1"`, not Firebase Auth UIDs.
-
-```text
-email: string
-phone: string
-username: string
-category: string
-id: number
-```
-
-Signup chooses the next ID with `collection.get().size + 1`; profile/category updates address the document by the persisted numeric `user_id`.
-
-### Firestore `location`
-
-Fields consumed by the app:
-
-```text
-category: lowercase string
-location_name: string
-location_address: string
-location_map: { latitude: number, longitude: number }
-image_url?: string
-rating: number
-open_day: string[]
-open_time: string
-close_time: string
-phone: string
-```
-
-Locations are fetched client-side, sorted by Haversine distance, then filtered/searched. Maps open through platform deep links.
-
-### Firestore `order`
-
-Documents also use numeric string IDs generated from collection size.
-
-```text
-id: number
-duration: number
-order_time: Firestore Timestamp
-location_name: string
-location_address: string
-location_map: { latitude: number, longitude: number }
-image_url?: string
-total_price: number
-user_id: number
-```
-
-Creating an order writes Firestore directly and opens a prefilled WhatsApp deep link to the venue. The client currently calculates price as `duration * 60000`.
-
-## State and UI Conventions
-
-- Session state: `isLogin`, `username`, `category`, `phone`, `email`, `user_id`, and `location`.
-- Reuse existing components and utilities before adding new abstractions or dependencies.
-- Preserve the current screen-plus-`styles.js` layout unless a requested refactor requires otherwise.
-- Use `LoadingHelper` and `AlertModal` consistently with existing async forms.
-- Poppins is the main UI font through `src/Utils/Fonts.tsx` and bundled Android font assets.
-- Do not perform a React Native/Firebase dependency migration as an incidental change; treat it as a separate task with platform verification.
-
-## Important Constraints and Known Risks
-
-- Firebase Security Rules and indexes are not in this folder. Direct client access is safe only if deployed rules enforce ownership and allowed fields; verify rules in Firebase before production work.
-- Phone login may require unauthenticated reads of user records. Do not broaden Firestore reads without reviewing privacy and rules.
-- Numeric IDs based on collection size can collide under concurrent writes. Prefer Auth UID/Firestore auto IDs in a deliberate data migration, not a small unrelated fix.
-- Booking price and order payload are client-controlled; there is no trusted server-side validation.
-- The MMKV encryption key is hardcoded in source and must not be treated as secret storage.
-- The Android Google Maps key is read from ignored `android/local.properties` or `MAPS_API_KEY`; restrict it by Android package/signing certificate and rotate older exposed keys if needed.
-- Android release output is unsigned until a private production signing configuration is supplied. Never commit production signing material.
-- `npm test` currently stops on the PNG asset imported by `@react-navigation/elements`; repair Jest asset mapping before treating the generated smoke test as a passing baseline.
-- `npm run lint` has a large legacy baseline. Do not apply a mass auto-fix during feature work; separate formatting cleanup from behavior changes.
-- Location acquisition retries recursively without a retry limit in `App.js` and `Nearby`; permission denial can cause repeated attempts.
-- Several list computations sort state arrays in place; be careful when changing recommendation/search behavior.
+- PostgreSQL keeps seven manual demo venues (demo transfer account `BCA (demo) 0000000000`); legacy Firestore data has not been imported.
+- Payments are manual bank transfers verified by the owner; there is no payment gateway, receipt upload, or "refund sent" tracking yet.
+- Admin venue onboarding supports Geoapify search, multiple sports, price/court configuration, schedule review, and publishing from the Profile screen. Swagger remains a debugging fallback.
+- Users do not choose a court number; the backend assigns one from the configured venue/sport court inventory.
+- Local Android debug allows HTTP. Production must use HTTPS and environment-specific URLs.
+- `npm run lint` still reports a legacy warning/error baseline outside the migrated files; avoid unrelated mass formatting.
+- React Native and several native dependencies are old and should be upgraded separately.
 
 ## Agent Working Rules
 
-- Read this file first, then inspect only files relevant to the requested change.
-- Do not assume a separate backend exists; Firebase is the current data/auth boundary.
-- Do not print, replace, or commit new credentials. Treat Firebase client configs as configuration that still requires API restrictions and Security Rules.
-- Preserve existing behavior unless the user explicitly requests a migration or product change.
-- After JavaScript/TypeScript changes, run the smallest relevant check; use lint/test and a platform build when the risk warrants it.
-- Update this guide when changing commands, routes, state shape, Firebase collections, or backend architecture.
+- Inspect only relevant files after reading this guide and the backend `AGENTS.md` when changing API behavior.
+- Reuse existing components and the four service modules before adding dependencies or abstractions.
+- Keep Firebase Auth; do not add direct Firestore access back into screens.
+- Preserve server authority for booking price, ownership, schedule, and conflict checks.
+- Keep credentials out of code and Git.
+- Run focused lint/tests, then an Android build when changes affect native integration or end-to-end flow.
+- Update this file and the backend guide whenever commands, endpoints, auth, or data shapes change.

@@ -1,5 +1,3 @@
-import {heightPercentageToDP, widthPercentageToDP} from '../../Utils/Sizing';
-
 const {StyleSheet} = require('react-native');
 
 const styles = StyleSheet.create({
@@ -8,20 +6,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#212529',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  title: {
-    width: widthPercentageToDP(20),
-    height: undefined,
+  loading: {
+    position: 'absolute',
+    bottom: 56,
+    flexDirection: 'row',
     alignItems: 'center',
-    aspectRatio: 21 / 9,
-    marginBottom: 5,
   },
-  subTitle: {
-    width: widthPercentageToDP(10),
-    height: undefined,
-    aspectRatio: 21 / 9,
+  status: {
+    marginLeft: 10,
+  },
+  feedback: {
+    width: '100%',
     alignItems: 'center',
-    marginLeft: 120,
+    marginTop: 48,
+  },
+  feedbackTitle: {
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  retryButton: {
+    alignSelf: 'stretch',
+    marginTop: 24,
+  },
+  signOutButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    marginTop: 8,
   },
 });
 

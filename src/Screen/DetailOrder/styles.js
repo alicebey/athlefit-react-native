@@ -1,87 +1,144 @@
-const {StyleSheet} = require('react-native');
+import {StyleSheet} from 'react-native';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#212529',
   },
-  image: {
+  content: {
+    paddingBottom: 24,
+  },
+  hero: {
     width: '100%',
-    height: undefined,
     aspectRatio: 16 / 9,
+    backgroundColor: '#2B3035',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 12,
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(27, 31, 34, 0.88)',
   },
   body: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  title: {
-    marginBottom: 10,
-  },
-  rating: {
-    marginTop: -15,
-  },
-  address: {
-    flexDirection: 'row',
-    marginVertical: 10,
-  },
-  button: {
+
+  flex: {
     flex: 1,
-    marginHorizontal: 5,
   },
-  back: {
-    position: 'absolute',
-    left: 0,
-    zIndex: 10,
-    padding: 10,
-  },
-  name: {
-    borderWidth: 2,
-    borderColor: '#52B788',
-    padding: 15,
-    borderRadius: 12,
-    marginTop: 5,
-  },
-  bookingName: {
-    marginVertical: 10,
-  },
-  buttonContainer: {
+  notice: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginTop: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#343A40',
+    borderRadius: 14,
+    backgroundColor: '#2B3035',
   },
-  date: {
+  noticeCopy: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  noticeBody: {
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  card: {
+    marginTop: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#343A40',
+    borderRadius: 16,
+    backgroundColor: '#2B3035',
+  },
+  cardTitle: {
+    marginBottom: 7,
+  },
+  formTitle: {
+    marginTop: 18,
+    marginBottom: 12,
+  },
+  payButton: {
+    marginTop: 18,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    marginTop: 20,
+  },
+  secondaryButton: {
+    flex: 1,
     borderWidth: 1,
     borderColor: '#52B788',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 5,
   },
-  timeContainer: {
+  actionSpacing: {
+    marginLeft: 10,
+  },
+  cancelHint: {
+    marginTop: 10,
+    lineHeight: 17,
+  },
+  heading: {
+    marginTop: 10,
+  },
+
+  addressRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
+    alignItems: 'flex-start',
+    marginTop: 12,
   },
-  bookingDate: {
-    marginRight: 24,
+  addressText: {
+    flex: 1,
+    marginLeft: 8,
+    lineHeight: 20,
   },
-  duration: {
+
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#495057',
+  },
+  detailValue: {
+    flex: 1,
+    marginLeft: 20,
+  },
+
+  cancelButton: {
+    marginTop: 10,
     borderWidth: 1,
-    borderColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 5,
-    marginRight: 20,
+    borderColor: '#C92A2A',
   },
-  bookingDuration: {
-    flexDirection: 'row',
+  fallback: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    backgroundColor: '#212529',
   },
-  durationContainer: {
-    marginBottom: 25,
+  fallbackTitle: {
+    marginTop: 12,
+    marginBottom: 6,
   },
-  selectedDuration: {
-    borderColor: '#52B788'
+  fallbackButton: {
+    alignSelf: 'stretch',
+    marginTop: 24,
   },
 });
 

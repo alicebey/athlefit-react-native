@@ -1,8 +1,8 @@
 import React, {PureComponent} from 'react';
 import Modal from 'react-native-modal';
-import {View, ActivityIndicator} from 'react-native';
+import {ActivityIndicator, StyleSheet, View} from 'react-native';
 import LoadingHelper from '../Utils/LoadingHelper';
-
+import Text from './Text';
 
 // a loading component that can be showing with bind method for globally
 class LoadingOverlay extends PureComponent {
@@ -32,25 +32,21 @@ class LoadingOverlay extends PureComponent {
     return (
       <Modal
         isVisible={visible}
-        style={{padding: 0, margin: 0}}
+        accessibilityViewIsModal
+        backdropOpacity={0.65}
+        style={styles.modal}
         animationIn="fadeIn"
         animationOut="fadeOut">
-        <View
-          style={{
-            flex: 1,
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.1)',
-          }}>
+        <View style={styles.container}>
           <View
-            style={{
-              backgroundColor: '#FFF',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 12,
-              paddingVertical: 20,
-              marginHorizontal: 20,
-            }}>
-            <ActivityIndicator size="large" color={'#000'} />
+            accessible
+            accessibilityRole="progressbar"
+            accessibilityLabel="Loading"
+            style={styles.wrapper}>
+            <ActivityIndicator size="large" color="#52B788" />
+            <Text type="semibold" size={14} style={styles.label}>
+              Loading…
+            </Text>
           </View>
         </View>
       </Modal>
@@ -59,3 +55,27 @@ class LoadingOverlay extends PureComponent {
 }
 
 export default LoadingOverlay;
+
+const styles = StyleSheet.create({
+  modal: {
+    margin: 0,
+  },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wrapper: {
+    minWidth: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2B3035',
+    borderColor: '#495057',
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 24,
+  },
+  label: {
+    marginTop: 12,
+  },
+});

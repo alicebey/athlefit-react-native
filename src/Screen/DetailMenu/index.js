@@ -1,133 +1,186 @@
-import {FlatList, TouchableOpacity, View} from 'react-native';
-import React, {useEffect, useMemo, useState} from 'react';
-import Text from '../../Component/Text';
+import {
+  ActivityIndicator,
+  FlatList,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
-import styles from './styles';
-import FieldCard from '../../Component/FieldCard';
 import {useNavigation} from '@react-navigation/native';
-import firestore from '@react-native-firebase/firestore';
+import Text from '../../Component/Text';
+import FieldCard from '../../Component/FieldCard';
 import SearchBar from '../../Component/SearchBar';
-import { useSessionStore } from '../../Service/sessionStore';
-import { haversineDistance } from '../../Utils/Haversine';
+import {useSessionStore} from '../../Service/sessionStore';
+import {getVenues} from '../../Service/venueService';
+import {haversineDistance} from '../../Utils/Haversine';
+import styles from './styles';
 
-// Screen for Detail Menu
 const DetailMenu = ({route}) => {
-  const {data} = route.params;
+  const sportName = route.params?.data?.name || 'Sport';
+  const sportSlug = route.params?.data?.slug || sportName.toLowerCase();
   const navigation = useNavigation();
-  const [listData, setListData] = useState([]);
+  const [venues, setVenues] = useState([]);
   const [search, setSearch] = useState('');
   const [isSearch, setIsSearch] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const {location} = useSessionStore();
 
-  // Function for getting data from database
-  const getData = async () => {
+  const loadVenues = useCallback(async () => {
+    setLoading(true);
+    setError(false);
     try {
-      const store = await firestore()
-        .collection('location')
-        .where('category', '==', data.name.toLowerCase())
-        .get();
-      const res = store.docs.map(item => item.data());
-      setListData(res);
-    } catch (error) {
-      console.log(error, 'error get data detail menu');
+      setVenues(await getVenues(sportSlug));
+    } catch (requestError) {
+      console.log(requestError, 'error get data detail menu');
+      setError(true);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [sportSlug]);
 
   useEffect(() => {
-    getData();
-  }, [data]);
+    loadVenues();
+  }, [loadVenues]);
 
-  // Data Manipulation function
-  const ListData = useMemo(() => {
-    
-    // Sorting by haversine distance
-    const sortedData = listData.sort((a, b) => {;
-      const distanceA = haversineDistance(location, a.location_map);
-      const distanceB = haversineDistance(location, b.location_map);
-      return distanceA - distanceB
-    })
-    if (search !== '') {
-
-      // Filtering with search word
-      return sortedData.filter(item => {
-        const includesName = item.location_name
-          .toLowerCase()
-          .includes(search.toLowerCase());
-        const includesPlace = item.location_address
-          .toLowerCase()
-          .includes(search.toLowerCase());
-        return includesName || includesPlace;
+  const filteredVenues = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return [...venues]
+      .sort((a, b) => {
+        const distanceA = haversineDistance(location, a.location_map);
+        const distanceB = haversineDistance(location, b.location_map);
+        return distanceA - distanceB;
+      })
+      .filter(item => {
+        if (!query) {
+          return true;
+        }
+        return (
+          item.location_name.toLowerCase().includes(query) ||
+          item.location_address.toLowerCase().includes(query)
+        );
       });
-    }
-    return sortedData;
-  }, [listData, search]);
+  }, [venues, search, location]);
 
-  const Footer = () => {
-    return (
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.footer}>
-        <Text size={16} type={'regular'}>
-          Search another sport?
-        </Text>
-      </TouchableOpacity>
-    );
+  const closeSearch = () => {
+    setIsSearch(false);
+    setSearch('');
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Icon
-          name={'arrow-left'}
+        <TouchableOpacity
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+          hitSlop={{top: 8, right: 8, bottom: 8, left: 8}}
           onPress={() => navigation.goBack()}
-          size={25}
-          color={'#52B788'}
-        />
+          style={styles.iconButton}>
+          <Icon name="arrow-left" size={24} color="#52B788" />
+        </TouchableOpacity>
+
         {isSearch ? (
           <SearchBar
-            onClose={() => {
-              setIsSearch(false);
-              setSearch('');
-            }}
+            alwaysShowClose
+            autoFocus
+            onClose={closeSearch}
             value={search}
-            onChange={val => setSearch(val)}
+            onChange={setSearch}
           />
         ) : (
           <>
-            <Text type="semibold" size={26}>
-              {data.name}
-            </Text>
-            <Icon
+            <View style={styles.headerTitle}>
+              <Text type="semibold" size={26} numberOfLines={1}>
+                {sportName}
+              </Text>
+              <Text type="regular" size={12} color="#ADB5BD">
+                Nearest venues first
+              </Text>
+            </View>
+            <TouchableOpacity
+              accessibilityLabel={`Search ${sportName} venues`}
+              accessibilityRole="button"
               onPress={() => setIsSearch(true)}
-              name={'search'}
-              size={25}
-              color={'#FFF'}
-            />
+              style={styles.iconButton}>
+              <Icon name="search" size={23} color="#F8F9FA" />
+            </TouchableOpacity>
           </>
         )}
       </View>
 
-      <View style={styles.body}>
-        <FlatList
-          data={ListData}
-          renderItem={({item, index}) => (
-            <FieldCard
-              data={item}
-              onPress={() => navigation.navigate('DetailField', {data: item})}
-            />
-          )}
-          keyExtractor={(_, i) => i.toString()}
-          ListFooterComponent={<Footer />}
-          ListEmptyComponent={
-            <Text
-              type="regular"
-              size={16}
-              color={'rgba(255, 255, 255, 0.5)'}
-              textAlign={'center'}>
-              Data not Found
-            </Text>
-          }
-        />
-      </View>
-    </View>
+      <FlatList
+        contentContainerStyle={styles.list}
+        data={filteredVenues}
+        renderItem={({item}) => (
+          <FieldCard
+            data={item}
+            onPress={() => navigation.navigate('DetailField', {data: item})}
+          />
+        )}
+        keyExtractor={item => item.id}
+        refreshing={loading}
+        onRefresh={loadVenues}
+        showsVerticalScrollIndicator={false}
+        ListFooterComponent={
+          filteredVenues.length ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => navigation.goBack()}
+              style={styles.footer}>
+              <Text size={14} type="semibold" color="#52B788">
+                Explore another sport
+              </Text>
+            </TouchableOpacity>
+          ) : null
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            {loading ? (
+              <ActivityIndicator color="#52B788" />
+            ) : (
+              <>
+                <Icon
+                  name={
+                    error ? 'wifi-off' : search.trim() ? 'search' : 'map-pin'
+                  }
+                  size={40}
+                  color="#6C757D"
+                />
+                <Text type="semibold" size={18} style={styles.emptyTitle}>
+                  {error
+                    ? 'Could not load venues'
+                    : search.trim()
+                    ? 'No matching venues'
+                    : `No ${sportName} venues yet`}
+                </Text>
+                <Text
+                  type="regular"
+                  size={13}
+                  color="#ADB5BD"
+                  textAlign="center">
+                  {error
+                    ? 'Check your connection and try again.'
+                    : search.trim()
+                    ? 'Try a venue name, area, or another keyword.'
+                    : 'We are still adding venues for this sport.'}
+                </Text>
+                {error ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={loadVenues}
+                    style={styles.retryButton}>
+                    <Text type="semibold" size={14} color="#52B788">
+                      Try again
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </>
+            )}
+          </View>
+        }
+      />
+    </SafeAreaView>
   );
 };
 

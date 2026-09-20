@@ -3,24 +3,38 @@ import React from 'react';
 import Text from './Text';
 import Image from './Image';
 import {AirbnbRating} from 'react-native-ratings';
-import {widthPercentageToDP} from '../Utils/Sizing';
 
 // Global field card component for global usage with dynamic data
 const FieldCard = ({onPress, data}) => {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.container}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={`${data?.location_name || 'Venue'}, ${
+        data?.location_address || 'address unavailable'
+      }, rating ${Number(data?.rating || 0).toFixed(1)} out of 5`}
+      activeOpacity={0.8}
+      onPress={onPress}
+      style={styles.container}>
       <View style={styles.image}>
-        <Image source={{uri: data?.image_url}} />
+        <Image
+          accessible={false}
+          resizeMode="cover"
+          source={
+            data?.image_url
+              ? {uri: data.image_url}
+              : require('../Assets/field.png')
+          }
+        />
       </View>
       <View style={styles.textContainer}>
-        <Text type="bold" size={16}>
+        <Text type="semibold" size={16} numberOfLines={1}>
           {data?.location_name}
         </Text>
-        <Text type="regular" numberOfLines={2} maxWidth={'75%'} size={14}>
+        <Text type="regular" numberOfLines={2} color="#ADB5BD" size={13}>
           {data?.location_address}
         </Text>
         <AirbnbRating
-          starContainerStyle={{alignSelf: 'flex-start'}}
+          starContainerStyle={styles.rating}
           count={5}
           isDisabled={true}
           showRating={false}
@@ -37,15 +51,27 @@ export default FieldCard;
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginBottom: 10,
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#343A40',
+    backgroundColor: '#2B3035',
   },
   image: {
-    width: widthPercentageToDP(35),
+    width: '38%',
     height: undefined,
     aspectRatio: 16 / 9,
-    marginRight: 10,
+    marginRight: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   textContainer: {
+    flex: 1,
     justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  rating: {
+    alignSelf: 'flex-start',
   },
 });

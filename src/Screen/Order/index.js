@@ -1,85 +1,163 @@
-import {FlatList, View} from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import React, {useEffect, useMemo, useState} from 'react';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/Feather';
 import Text from '../../Component/Text';
 import styles from './styles';
 import Image from '../../Component/Image';
 import OrderCard from '../../Component/OrderCard';
-import firestore from '@react-native-firebase/firestore';
-import {useSessionStore} from '../../Service/sessionStore';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
+import {getMyBookings, isActiveBooking} from '../../Service/bookingService';
 
 // Screen for list order
 const OrderScreen = () => {
   const [data, setData] = useState([]);
-  const {user_id} = useSessionStore();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [tab, setTab] = useState('upcoming');
   const isFocused = useIsFocused();
   const navigation = useNavigation();
 
-  // Get data order from firebase
+  // Get signed-in user's bookings from backend
   const getData = async () => {
+    setLoading(true);
+    setError(false);
     try {
-      const store = await firestore()
-        .collection('order')
-        .where('user_id', '==', user_id)
-        .get();
-      const res = store.docs.map(item => item.data());
-      setData(res);
-    } catch (error) {
-      console.log(error, 'error get data order');
+      setData(await getMyBookings());
+    } catch (requestError) {
+      console.log(requestError, 'error get data order');
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    getData();
+    if (isFocused) {
+      getData();
+    }
   }, [isFocused]);
 
-  const getNowDate = val => {
-    const date = val.getDate();
-    const month = val.getMonth();
-    const year = val.getFullYear();
-
-    return date + month + year;
-  };
-
-  // Filter data by date
-  const ListData = useMemo(() => {
-    return data.filter(item => {
-      const condition =
-        getNowDate(new Date()) <=
-        getNowDate(new Date(item.order_time.seconds * 1000));
-      return condition;
-    });
+  // Upcoming = still active and not finished; everything else is history.
+  const {upcoming, history} = useMemo(() => {
+    const now = Date.now();
+    const isUpcoming = item =>
+      isActiveBooking(item) && item.end_time.seconds * 1000 > now;
+    return {
+      upcoming: data
+        .filter(isUpcoming)
+        .sort((a, b) => a.order_time.seconds - b.order_time.seconds),
+      history: data
+        .filter(item => !isUpcoming(item))
+        .sort((a, b) => b.order_time.seconds - a.order_time.seconds),
+    };
   }, [data]);
-
-  // Component when the list is Empty
-  const ListEmptyOrder = () => {
-    return (
-      <View style={styles.emptyContainer}>
-        <View style={styles.emptyImage}>
-          <Image source={require('../../Assets/EmptyOrder.png')} />
-        </View>
-        <View style={styles.emptyText}>
-          <Text type="regular" size={16}>
-            You didnt have any order here
-            <Text type="regular" size={16} color={'#52B788'}>
-              . Lets Order!
-            </Text>
-          </Text>
-        </View>
-      </View>
-    );
-  };
+  const ListData = tab === 'upcoming' ? upcoming : history;
+  const awaitingPayment = upcoming.filter(
+    item => item.status === 'PENDING_PAYMENT',
+  ).length;
+  const tabs = [
+    {key: 'upcoming', label: 'Upcoming', count: upcoming.length},
+    {key: 'history', label: 'History', count: history.length},
+  ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['top']} style={styles.container}>
+      <View style={styles.header}>
+        <Text accessibilityRole="header" type="semibold" size={28}>
+          My bookings
+        </Text>
+        <Text type="regular" size={13} color="#ADB5BD">
+          {awaitingPayment
+            ? `${awaitingPayment} ${
+                awaitingPayment === 1 ? 'booking needs' : 'bookings need'
+              } payment`
+            : 'Your games, all in one place'}
+        </Text>
+        <View accessibilityRole="tablist" style={styles.tabs}>
+          {tabs.map(item => {
+            const selected = item.key === tab;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                accessibilityRole="tab"
+                accessibilityState={{selected}}
+                activeOpacity={0.8}
+                onPress={() => setTab(item.key)}
+                style={[styles.tab, selected && styles.tabSelected]}>
+                <Text
+                  type="semibold"
+                  size={14}
+                  color={selected ? '#FFFFFF' : '#ADB5BD'}>
+                  {item.label}
+                  {item.count ? ` (${item.count})` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
       <FlatList
         contentContainerStyle={styles.list}
         data={ListData}
-        renderItem={({item, index}) => <OrderCard onPress={() => navigation.navigate('Detail Order', {data: item})} data={item} />}
-        ListEmptyComponent={<ListEmptyOrder />}
-        keyExtractor={(_, i) => i.toString()}
+        renderItem={({item, index}) => (
+          <OrderCard
+            onPress={() => navigation.navigate('Detail Order', {data: item})}
+            data={item}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            {loading ? (
+              <ActivityIndicator color="#52B788" />
+            ) : (
+              <>
+                {error ? (
+                  <Icon name="wifi-off" size={42} color="#6C757D" />
+                ) : (
+                  <View style={styles.emptyImage}>
+                    <Image source={require('../../Assets/EmptyOrder.png')} />
+                  </View>
+                )}
+                <Text type="semibold" size={18} style={styles.emptyTitle}>
+                  {error
+                    ? 'Could not load bookings'
+                    : tab === 'upcoming'
+                    ? 'No upcoming games'
+                    : 'No past bookings yet'}
+                </Text>
+                <Text
+                  type="regular"
+                  size={13}
+                  color="#ADB5BD"
+                  textAlign="center">
+                  {error
+                    ? 'Check your connection and try again.'
+                    : 'Book a venue and your next game will appear here.'}
+                </Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={error ? getData : () => navigation.navigate('Home')}
+                  style={styles.emptyAction}>
+                  <Text type="semibold" size={14} color="#52B788">
+                    {error ? 'Try again' : 'Explore venues'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        }
+        keyExtractor={item => item.id}
+        refreshing={loading}
+        onRefresh={getData}
+        showsVerticalScrollIndicator={false}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 

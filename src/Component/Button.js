@@ -1,7 +1,6 @@
-import {StyleSheet, TouchableOpacity, View} from 'react-native';
+import {StyleSheet, TouchableOpacity} from 'react-native';
 import React from 'react';
 import Text from './Text';
-
 
 // Global component for default button with dynamic props for title, background and other style including disable status
 const Button = ({
@@ -11,18 +10,24 @@ const Button = ({
   buttonStyle,
   titleColor = '#FFF',
   disabled = false,
+  accessibilityHint,
 }) => {
   return (
     <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{disabled}}
       activeOpacity={0.8}
       onPress={onPress}
       disabled={disabled}
       style={[
         styles.container,
-        {backgroundColor: backgroundColor, opacity: disabled ? 0.5 : 1},
+        {backgroundColor},
+        disabled && styles.disabled,
         buttonStyle,
       ]}>
-      <Text type="bold" size={24} color={titleColor}>
+      <Text type="semibold" size={16} color={titleColor}>
         {title}
       </Text>
     </TouchableOpacity>
@@ -33,9 +38,14 @@ export default Button;
 
 const styles = StyleSheet.create({
   container: {
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  disabled: {
+    opacity: 0.5,
   },
 });

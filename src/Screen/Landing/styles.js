@@ -1,5 +1,3 @@
-import {widthPercentageToDP} from '../../Utils/Sizing';
-
 const {StyleSheet} = require('react-native');
 
 const styles = StyleSheet.create({
@@ -8,25 +6,43 @@ const styles = StyleSheet.create({
   },
   image: {
     flex: 1,
-    paddingVertical: 28,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(20, 24, 27, 0.58)',
+  },
+  safeArea: {
+    flex: 1,
     paddingHorizontal: 20,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'space-between',
   },
-  title: {
-    width: widthPercentageToDP(20),
-    height: undefined,
-    aspectRatio: 21 / 9,
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: 5,
+  header: {
+    marginTop: 12,
   },
-  subTitle: {
-    width: widthPercentageToDP(10),
-    height: undefined,
-    aspectRatio: 21 / 9,
-    alignItems: 'center',
+  bottom: {
+    width: '100%',
+    maxWidth: 520,
     alignSelf: 'center',
-    marginLeft: 150,
+    paddingBottom: 12,
+  },
+  heading: {
+    marginBottom: 12,
+    lineHeight: 48,
+  },
+  copy: {
+    lineHeight: 23,
+    marginBottom: 28,
+    maxWidth: 420,
+  },
+  primaryButton: {
+    marginBottom: 12,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#495057',
   },
 });
 

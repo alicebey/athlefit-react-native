@@ -8,16 +8,38 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -10,
   },
   body: {
+    flex: 1,
     paddingHorizontal: 20,
-    paddingVertical: 10,
   },
-  footer: {
-    padding: 10,
+  list: {
+    flexGrow: 1,
+    paddingBottom: 32,
+  },
+  emptyState: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    marginTop: 14,
+    marginBottom: 5,
+  },
+  retryButton: {
+    marginTop: 16,
+    padding: 10,
   },
 });
 

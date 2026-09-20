@@ -1,63 +1,47 @@
-import {FlatList, TouchableOpacity, View} from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import React, {useEffect, useMemo, useState} from 'react';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import Text from '../../Component/Text';
 import styles from './styles';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Image from '../../Component/Image';
 import FieldCard from '../../Component/FieldCard';
 import {useNavigation} from '@react-navigation/native';
-import SearchBar from '../../Component/SearchBar';
-import firestore from '@react-native-firebase/firestore';
-import LoadingHelper from '../../Utils/LoadingHelper';
-import { haversineDistance } from '../../Utils/Haversine';
-import { useSessionStore } from '../../Service/sessionStore';
-
-const Menu = [
-  {
-    name: 'Badminton',
-    icon: require('../../Assets/Icon-Badminton.png'),
-  },
-  {
-    name: 'Futsal',
-    icon: require('../../Assets/Icon-Futsal.png'),
-  },
-  {
-    name: 'Basketball',
-    icon: require('../../Assets/Icon-Basketball.png'),
-  },
-  {
-    name: 'Soccer',
-    icon: require('../../Assets/Icon-Soccer.png'),
-  },
-  {
-    name: 'Tennis',
-    icon: require('../../Assets/Icon-Tennis.png'),
-  },
-  {
-    name: 'Golf',
-    icon: require('../../Assets/Icon-Golf.png'),
-  },
-  {
-    name: 'Billiard',
-    icon: require('../../Assets/Icon-Billiard.png'),
-  },
-];
+import {haversineDistance} from '../../Utils/Haversine';
+import {useSessionStore} from '../../Service/sessionStore';
+import {
+  getVenues,
+  offersSport,
+  withPrimarySport,
+} from '../../Service/venueService';
+import {toSportSlug, useSports} from '../../Utils/Sports';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const [isSearch, setIsSearch] = useState(false);
+  const sports = useSports();
   const [data, setData] = useState([]);
-  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const {location, category} = useSessionStore();
+  const hasLocation =
+    location && (location.latitude !== 0 || location.longitude !== 0);
 
-  // Function for get data from firebase;
+  // Function for get venue data from backend
   const getData = async () => {
+    setLoading(true);
+    setError(false);
     try {
-      const store = await firestore().collection('location').get();
-      const res = store.docs.map(item => item.data());
-      setData(res);
-    } catch (error) {
-      console.log(error, 'error get data');
+      setData(await getVenues());
+    } catch (requestError) {
+      console.log(requestError, 'error get data');
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,48 +50,57 @@ const HomeScreen = () => {
     getData();
   }, []);
 
-  // Data Manipulation 
+  // Data Manipulation
   const ListData = useMemo(() => {
-
     // Sorting data by nearest location using haversine algorithm
-    const sortedData = data.sort((a, b) => {;
-      const distanceA = haversineDistance(location, a.location_map);
-      const distanceB = haversineDistance(location, b.location_map);
-      return distanceA - distanceB
-      // return b.rating - a.rating
-    })
-    // filter by category
-    .filter((item) => {
-      return item.category == category.toLowerCase()
-    })
+    const sortedData = hasLocation
+      ? [...data].sort((a, b) => {
+          const distanceA = haversineDistance(location, a.location_map);
+          const distanceB = haversineDistance(location, b.location_map);
+          return distanceA - distanceB;
+        })
+      : data;
 
+    const favouriteSlug = toSportSlug(category);
+    return sortedData
+      .filter(item => offersSport(item, favouriteSlug))
+      .map(item => withPrimarySport(item, favouriteSlug));
+  }, [data, location, category, hasLocation]);
 
-    if (search !== '') {
+  // Pad the grid with empty cells so a partly filled last row keeps tile widths.
+  const gridSports = useMemo(() => {
+    const columns = 4;
+    const padding = (columns - (sports.length % columns)) % columns;
+    return [
+      ...sports,
+      ...Array.from({length: padding}, (_, index) => ({
+        slug: `placeholder-${index}`,
+        placeholder: true,
+      })),
+    ];
+  }, [sports]);
 
-      // Filter by searching word
-      return sortedData.filter(item => {
-        const includesName = item.location_name
-          .toLowerCase()
-          .includes(search.toLowerCase());
-        const includesPlace = item.location_address
-          .toLowerCase()
-          .includes(search.toLowerCase());
-        return includesName || includesPlace;
-      });
+  const renderMenu = ({item}) => {
+    if (item.placeholder) {
+      return (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[styles.menu, styles.menuPlaceholder]}
+        />
+      );
     }
-    return sortedData;
-  }, [data, search]);
-
-  const renderMenu = ({item, index}) => {
     return (
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Browse ${item.name} venues`}
         onPress={() => navigation.navigate('DetailMenu', {data: item})}
         activeOpacity={0.8}
         style={styles.menu}>
         <View style={styles.logo}>
           <Image source={item.icon} />
         </View>
-        <Text type="semibold" size={14}>
+        <Text type="semibold" size={14} numberOfLines={1} textAlign="center">
           {item.name}
         </Text>
       </TouchableOpacity>
@@ -115,50 +108,56 @@ const HomeScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['top']} style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          style={styles.profile}>
-          <Icon name={'account-circle'} size={30} color={'#52B788'} />
+          accessibilityRole="button"
+          accessibilityLabel="Search sports venues"
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('SearchField')}
+          style={styles.searchBar}>
+          <Icon name="search" size={24} color="#ADB5BD" />
+          <Text
+            type="regular"
+            size={14}
+            color="#ADB5BD"
+            style={styles.searchPlaceholder}>
+            Search venues or locations
+          </Text>
+          <Text type="bold" size={16} color="#52B788">
+            Search
+          </Text>
         </TouchableOpacity>
-
-        {isSearch ? (
-          <SearchBar
-            value={search}
-            onChange={val => setSearch(val)}
-            onClose={() => {
-              setIsSearch(false);
-              setSearch('');
-            }}
-          />
-        ) : (
-          <TouchableOpacity
-            onPress={() => navigation.navigate('SearchField')}
-            style={styles.search}>
-            <Icon name={'search'} size={30} color={'#FFF'} />
-          </TouchableOpacity>
-        )}
       </View>
 
       <View style={styles.title}>
-        <Text type="semibold" size={36}>
+        <Text accessibilityRole="header" type="semibold" size={28}>
           Sports
+        </Text>
+        <Text type="regular" size={13} color="#ADB5BD">
+          Choose how you want to play
         </Text>
       </View>
 
       <View style={styles.categoryContainer}>
         <FlatList
-          data={Menu}
+          data={gridSports}
           renderItem={renderMenu}
-          keyExtractor={(_, i) => i.toString()}
+          keyExtractor={item => item.slug}
           numColumns={4}
+          columnWrapperStyle={styles.menuRow}
+          scrollEnabled={false}
         />
       </View>
 
       <View style={styles.recommendationContainer}>
-        <Text type="bold" size={36}>
-          Recomendations
+        <Text accessibilityRole="header" type="semibold" size={28}>
+          Recommendations
+        </Text>
+        <Text type="regular" size={13} color="#ADB5BD" style={styles.subtitle}>
+          {hasLocation
+            ? 'Venues for your favourite sport, nearest first'
+            : 'Venues selected for your favourite sport'}
         </Text>
         <FlatList
           data={ListData}
@@ -168,21 +167,51 @@ const HomeScreen = () => {
               onPress={() => navigation.navigate('DetailField', {data: item})}
             />
           )}
-          keyExtractor={(_, i) => i.toString()}
+          keyExtractor={item => item.id}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
+          refreshing={loading}
+          onRefresh={getData}
           ListEmptyComponent={
-            <Text
-              type="regular"
-              size={16}
-              color={'rgba(255, 255, 255, 0.5)'}
-              textAlign={'center'}>
-              Data not Found
-            </Text>
+            <View style={styles.emptyState}>
+              {loading ? (
+                <ActivityIndicator color="#52B788" />
+              ) : (
+                <>
+                  <Icon
+                    name={error ? 'cloud-off' : 'sports'}
+                    size={36}
+                    color="#6C757D"
+                  />
+                  <Text type="semibold" size={16} style={styles.emptyTitle}>
+                    {error ? 'Could not load venues' : 'No venues found yet'}
+                  </Text>
+                  <Text
+                    type="regular"
+                    size={13}
+                    color="#ADB5BD"
+                    textAlign="center">
+                    {error
+                      ? 'Check your connection, then try again.'
+                      : `We are still adding ${category || 'sport'} venues.`}
+                  </Text>
+                  {error ? (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      onPress={getData}
+                      style={styles.retryButton}>
+                      <Text type="semibold" size={14} color="#52B788">
+                        Try again
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </>
+              )}
+            </View>
           }
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

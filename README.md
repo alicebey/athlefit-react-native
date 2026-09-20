@@ -4,148 +4,138 @@
 
 # Athlefit
 
-Athlefit is a React Native mobile app for discovering nearby sports venues and creating bookings. It combines Firebase authentication and data storage with location-aware recommendations, maps, and a lightweight booking flow.
-
-> This is a legacy project being revived and modernized as a portfolio case study. The Android app runs today; security, data integrity, testing, and platform upgrades are tracked in the roadmap below.
+Athlefit is a React Native app for discovering nearby sports venues and creating bookings. This legacy project is being modernized as a portfolio case study with a Spring Boot API, PostgreSQL, and Firebase Authentication.
 
 ## Highlights
 
 - Email/password registration and login with Firebase Authentication
-- Sports preference onboarding
-- Nearby venue recommendations using Haversine distance
-- Search and category filtering
-- Venue details, opening hours, ratings, and map directions
-- Booking creation with date, time, duration, and WhatsApp handoff
-- Persisted user session with Zustand and MMKV
-- Android and iOS native projects from a bare React Native setup
+- Spring Boot REST API with verified Firebase ID tokens
+- PostgreSQL persistence and versioned Flyway migrations
+- Server-side price, operating-hour, and booking-conflict validation
+- Geoapify-assisted venue onboarding with confirmed PostgreSQL schedule snapshots
+- In-app admin venue search, review, pricing, capacity, and publishing
+- Multi-sport pricing with automatic court assignment
+- Confirmed-booking details and cancellation with explicit confirmation
+- Sports preference onboarding, search, nearby recommendations, and maps
+- Persisted mobile session with Zustand and MMKV
+
+## Architecture
+
+```text
+React Native app
+  |-- Firebase Authentication (identity only)
+  |-- Spring Boot REST API (profiles, venues, bookings)
+          |-- PostgreSQL
+          |-- Firebase ID-token verification
+          |-- Geoapify venue import during admin onboarding
+```
+
+Cloud Firestore is no longer used by the app. The Spring Boot project lives locally at:
+
+```text
+/Users/eki/React Native/Backend/Althefit-macro
+```
+
+See [AGENTS.md](AGENTS.md) for the detailed architecture and API contract.
 
 ## Tech Stack
 
 - React Native 0.71.1 and React 18.2
 - React Navigation 6
-- Firebase Authentication and Cloud Firestore
+- Firebase Authentication 16.7
 - Zustand, Immer, and react-native-mmkv
 - React Native Maps and community Geolocation
-- JavaScript with selected TypeScript utilities
+- Spring Boot 4.1, Java 17, PostgreSQL 17, and Flyway
 
-## Architecture
-
-```text
-index.js -> App.js -> React Navigation
-                       |-- authentication/onboarding screens
-                       |-- Home / Order / Nearby tabs
-                       |-- detail and booking screens
-
-Screens -> Firebase Auth / Firestore
-        -> Zustand session store -> MMKV persistence
-        -> native location, maps, and WhatsApp deep links
-```
-
-There is no custom REST or GraphQL backend in this repository. Firebase is used directly as the backend-as-a-service.
-
-## Firestore Collections
-
-| Collection | Purpose |
-| --- | --- |
-| `users` | Profile, phone number, sport preference, and legacy numeric user ID |
-| `location` | Venue details, coordinates, schedule, rating, contact, and image URL |
-| `order` | Booking time, duration, venue snapshot, price, and user reference |
-
-See [AGENTS.md](AGENTS.md) for the detailed routes, state shape, and document fields.
-
-## Getting Started
+## Run Locally
 
 ### Prerequisites
 
 - Node.js 16.20.2 through NVM
-- npm
 - Java 17
+- Docker Desktop
 - Android Studio and an Android emulator
 - Android SDK 33, Build Tools 33.0.0, and NDK 23.1.7779620
-- A Firebase Android app and a restricted Google Maps API key
 
-### Local configuration
-
-1. Download your Firebase Android configuration and save it as:
-
-   ```text
-   android/app/google-services.json
-   ```
-
-2. Copy `android/local.properties.example` to `android/local.properties` and set your Android SDK path and Maps key:
-
-   ```properties
-   sdk.dir=/path/to/Android/sdk
-   MAPS_API_KEY=your_android_maps_api_key
-   ```
-
-These local service files are intentionally excluded from Git.
-
-### Install and run
+### 1. Start PostgreSQL and the backend
 
 ```bash
+cd "/Users/eki/React Native/Backend/Althefit-macro"
+docker compose up -d
+./mvnw spring-boot:run
+```
+
+The API runs at `http://localhost:8080`. Swagger UI is available at `http://localhost:8080/swagger-ui.html`.
+
+### 2. Configure the mobile app
+
+Place the Firebase Android client configuration at:
+
+```text
+android/app/google-services.json
+```
+
+Copy `android/local.properties.example` to `android/local.properties`, then set the Android SDK path and Maps key:
+
+```properties
+sdk.dir=/path/to/Android/sdk
+MAPS_API_KEY=your_android_maps_api_key
+```
+
+These local configuration files are excluded from Git.
+
+### 3. Run Android
+
+```bash
+cd "/Users/eki/React Native/athlefit-main"
 nvm use
 npm ci
 npm run android
 ```
 
-For Metro only:
+The Android emulator accesses the host backend through `http://10.0.2.2:8080`. iOS uses `http://localhost:8080`. A physical device or deployed build needs a reachable HTTPS API URL in `src/Config/api.js`.
+
+## Checks
+
+Mobile:
 
 ```bash
-npm start
-```
-
-Other available checks:
-
-```bash
-npm test
+npm test -- --runInBand
 npm run lint
 ```
 
-## Project Structure
+Backend:
 
-```text
-src/
-  Assets/       Images and bundled artwork
-  Component/    Shared UI components
-  Router/       Stack and bottom-tab navigation
-  Screen/       Product screens and their styles
-  Service/      Persisted Zustand session store
-  Storage/      MMKV persistence adapter
-  Utils/        Fonts, sizing, distance, currency, and validation helpers
-android/        Native Android project
-ios/            Native iOS project
+```bash
+cd "/Users/eki/React Native/Backend/Althefit-macro"
+./mvnw test
 ```
 
-## Security Notes
+## Important Notes
 
-- Firebase client configuration, App Center configuration, Maps keys, and signing material are not committed.
-- A public deployment must use restrictive Firestore Security Rules and API-key restrictions.
-- The legacy numeric ID strategy and client-controlled booking price require migration before production use.
-- No production signing key belongs in this repository.
-
-## Current Quality Baseline
-
-- Android manifest processing and local Maps-key configuration pass successfully.
-- The generated Jest smoke test currently stops on React Navigation's PNG asset because Jest does not yet map that asset type.
-- ESLint reports legacy formatting, hook dependency, unused import, and inline-style debt.
-
-These known issues are documented rather than hidden or mixed into the initial portfolio import.
+- Existing Firestore documents are not automatically imported. PostgreSQL currently starts with seven demo venues from Flyway seed data.
+- Login by phone number was removed. The old implementation exposed a phone-to-email lookup; login is now email/password only.
+- A venue can offer multiple sports, each with its own hourly price and court count. The backend assigns court numbers automatically.
+- The API computes booking prices and PostgreSQL prevents overlapping confirmed bookings on the same court.
+- Geoapify venue onboarding and required backend environment variables are documented in the backend `docs/VENUE_ONBOARDING.md`.
+- Admin UIDs see **Manage Venues** on the Profile screen; regular users never see the onboarding UI.
+- The current base URL and Android cleartext permission are for local debug use only. Production should use HTTPS and environment-specific configuration.
 
 ## Roadmap
 
-- [ ] Add and test Firestore Security Rules
-- [ ] Use Firebase Auth UID and Firestore auto IDs
-- [ ] Validate booking availability and pricing atomically
-- [ ] Improve auth, permission, offline, and error states
-- [ ] Repair Jest asset mapping and establish a passing smoke-test baseline
-- [ ] Reduce ESLint debt while keeping formatting changes separate from behavior changes
-- [ ] Add focused tests for core booking and location logic
-- [ ] Configure Firebase for iOS
-- [ ] Upgrade React Native in a dedicated migration branch
-- [ ] Add polished screenshots and a short demo video
+- [x] Add no-card Geoapify venue discovery, schedule confirmation, and Swagger onboarding
+- [x] Add an admin venue onboarding screen
+- [ ] Add venue editing/deactivation and a richer owner dashboard
+- [x] Add booking cancellation to the mobile UI
+- [x] Improve loading, empty, offline, and permission-denied states
+- [ ] Add integration tests using PostgreSQL/Testcontainers
+- [ ] Configure Firebase and backend connectivity for iOS
+- [ ] Move API URLs to build-time development/staging/production configuration
+- [ ] Upgrade React Native in a dedicated migration
+- [ ] Add polished screenshots, architecture visuals, and a demo video
 
 ## Documentation
 
-- [AGENTS.md](AGENTS.md): shared project context and coding-agent guidance
+- [AGENTS.md](AGENTS.md): shared coding-agent context and mobile/backend contract
 - [CLAUDE.md](CLAUDE.md): Claude Code entry point importing the shared guide
+- Backend `README.md`: API setup, endpoints, schema, and security notes

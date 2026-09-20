@@ -6,30 +6,34 @@ import Button from './Button';
 
 //Global component Modal for alert pop up warning, body can be dynamicly with props
 
-// Usage: 
+// Usage:
 // <AlertModal visible={true} body={'content body'} onClose={() => function for close modal} />
 
-const AlertModal = ({visible, onClose, body}) => {
+const AlertModal = ({visible, onClose, body, title = 'Notice'}) => {
   return (
     <Modal
       isVisible={visible}
-      style={{padding: 0, margin: 0}}
+      accessibilityViewIsModal
+      onBackdropPress={onClose}
+      onBackButtonPress={onClose}
+      backdropOpacity={0.65}
+      style={styles.modal}
       animationIn={'fadeIn'}
       animationOut={'fadeOut'}>
       <View style={styles.container}>
         <View style={styles.wrapper}>
           <Text
-            type="bold"
-            style={{marginBottom: 10}}
-            size={24}
-            color={'#000'}
+            accessibilityRole="header"
+            type="semibold"
+            style={styles.title}
+            size={20}
             textAlign={'center'}>
-            Alert!
+            {title}
           </Text>
-          <Text type="semibold" size={20} color={'#000'} textAlign={'center'}>
+          <Text type="regular" size={14} color="#CED4DA" textAlign={'center'}>
             {body}
           </Text>
-          <Button title="Oke" buttonStyle={styles.button} onPress={onClose} />
+          <Button title="OK" buttonStyle={styles.button} onPress={onClose} />
         </View>
       </View>
     </Modal>
@@ -39,20 +43,25 @@ const AlertModal = ({visible, onClose, body}) => {
 export default AlertModal;
 
 const styles = StyleSheet.create({
+  modal: {
+    margin: 0,
+  },
   container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
   },
   wrapper: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    marginHorizontal: 20,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    backgroundColor: '#2B3035',
+    borderColor: '#495057',
+    borderWidth: 1,
+    borderRadius: 20,
+    marginHorizontal: 24,
+    padding: 24,
+  },
+  title: {
+    marginBottom: 8,
   },
   button: {
-    marginHorizontal: 20,
-    marginTop: 15,
+    marginTop: 20,
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, Text as NativeText, View} from 'react-native';
+import {StyleSheet, Text as NativeText} from 'react-native';
 import {Fonts} from '../Utils/Fonts';
 import {scaledSize} from '../Utils/Sizing';
 
@@ -26,8 +26,8 @@ const Text = ({
   type,
   textAlign,
   maxWidth,
+  ...props
 }: PropsText) => {
-  
   // Conditional for determening Font type
   const fontFamily = (): string => {
     if (type === 'thin') {
@@ -44,15 +44,17 @@ const Text = ({
 
   return (
     <NativeText
+      {...props}
       numberOfLines={numberOfLines}
       ellipsizeMode={'tail'}
       style={[
+        styles.text,
         style !== undefined && style,
         {
           fontFamily: fontFamily(),
           fontSize: size ? scaledSize(size) : scaledSize(14),
-          color: color ? color : '#FFFFFF',
         },
+        color !== undefined && {color},
         textAlign !== undefined && {textAlign: textAlign},
         maxWidth !== undefined && {maxWidth: maxWidth},
       ]}>
@@ -62,3 +64,9 @@ const Text = ({
 };
 
 export default Text;
+
+const styles = StyleSheet.create({
+  text: {
+    color: '#FFFFFF',
+  },
+});

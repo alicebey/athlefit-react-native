@@ -1,15 +1,16 @@
-import {FlatList, View} from 'react-native';
+import {FlatList, TouchableOpacity, View} from 'react-native';
 import React, {useState} from 'react';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import Text from '../../Component/Text';
 import styles from './styles';
 import Header from '../../Component/Header';
-import {TouchableOpacity} from 'react-native';
 import Image from '../../Component/Image';
 import Button from '../../Component/Button';
+import AlertModal from '../../Component/AlertModal';
 import {useNavigation} from '@react-navigation/native';
 import {useSessionStore} from '../../Service/sessionStore';
-import firestore from '@react-native-firebase/firestore';
 import LoadingHelper from '../../Utils/LoadingHelper';
+import {updateCurrentUser} from '../../Service/userService';
 
 export const DummyCategory = [
   {
@@ -40,23 +41,34 @@ export const DummyCategory = [
     name: 'Billiard',
     image: require('../../Assets/Billiard.png'),
   },
-]
+];
 
 // Screen Select Category
-const StarterScreen = () => {
+const StarterScreen = ({route}) => {
   const navigation = useNavigation();
-  const [selectedCategory, setSelectedCategory] = useState(0);
-  const {setCategory, user_id} = useSessionStore();
+  const {category, setCategory} = useSessionStore();
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    const savedIndex = DummyCategory.findIndex(item => item.name === category);
+    return savedIndex < 0 ? 0 : savedIndex;
+  });
+  const [saving, setSaving] = useState(false);
+  const [alert, setAlert] = useState({show: false, body: ''});
 
   const renderCategory = ({item, index}) => {
     return (
       <TouchableOpacity
+        accessibilityLabel={`Choose ${item.name}`}
+        accessibilityRole="radio"
+        accessibilityState={{selected: index === selectedCategory}}
+        activeOpacity={0.8}
         onPress={() => setSelectedCategory(index)}
         style={[
           styles.category,
           index === selectedCategory && styles.selected,
         ]}>
-        <Image source={item.image} />
+        <View style={styles.categoryImage}>
+          <Image source={item.image} />
+        </View>
         <Text style={styles.categoryTitle} type="regular">
           {item.name}
         </Text>
@@ -66,37 +78,49 @@ const StarterScreen = () => {
 
   // Submit select category
   const onSubmit = async () => {
+    if (saving) {
+      return;
+    }
+    setSaving(true);
     LoadingHelper.show();
     try {
-      setCategory(DummyCategory[selectedCategory].name);
-      await firestore().collection('users').doc(`${user_id}`).update({
-        category: DummyCategory[selectedCategory].name,
+      const selectedSport = DummyCategory[selectedCategory].name;
+      await updateCurrentUser({
+        favoriteSport: selectedSport,
       });
-      console.log(user_id, 'id');
-      navigation.reset({
-        routes: [{name: 'Main'}],
-        index: 0,
-      });
+      setCategory(selectedSport);
+      if (route?.params?.returnToProfile) {
+        navigation.goBack();
+      } else {
+        navigation.reset({routes: [{name: 'Main'}], index: 0});
+      }
     } catch (error) {
       console.log(error, 'error select category');
+      setAlert({
+        show: true,
+        body: error.message || 'Could not save your favourite sport.',
+      });
+    } finally {
+      LoadingHelper.hide();
+      setSaving(false);
     }
-    LoadingHelper.hide();
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Header />
       <View style={styles.body}>
         <View style={styles.title}>
-          <Text
-            type="bold"
-            textAlign="center"
-            style={{marginBottom: -5}}
-            size={24}>
-            What’s sport wanna choose?
+          <Text type="bold" textAlign="center" size={28}>
+            Choose your favourite sport
           </Text>
-          <Text type="thin" size={16} textAlign={'center'}>
-            max choose 1
+          <Text
+            type="regular"
+            size={14}
+            color="#ADB5BD"
+            textAlign="center"
+            style={styles.subtitle}>
+            We’ll personalise venue recommendations for you.
           </Text>
         </View>
 
@@ -104,17 +128,29 @@ const StarterScreen = () => {
           <FlatList
             data={DummyCategory}
             renderItem={renderCategory}
-            keyExtractor={(_, i) => i.toString()}
-            numColumns={3}
+            keyExtractor={item => item.name}
+            numColumns={2}
+            columnWrapperStyle={styles.categoryRow}
+            contentContainerStyle={styles.categoryList}
             showsVerticalScrollIndicator={false}
           />
         </View>
 
         <View style={styles.buttonContainer}>
-          <Button onPress={onSubmit} title="Choose" />
+          <Button
+            disabled={saving}
+            onPress={onSubmit}
+            title={saving ? 'Saving…' : category ? 'Save sport' : 'Continue'}
+          />
         </View>
       </View>
-    </View>
+
+      <AlertModal
+        visible={alert.show}
+        body={alert.body}
+        onClose={() => setAlert({show: false, body: ''})}
+      />
+    </SafeAreaView>
   );
 };
 

@@ -74,6 +74,6 @@ it('sends a Firebase password reset email from its own screen', async () => {
   expect(LoadingHelper.show).toHaveBeenCalledTimes(1);
   expect(LoadingHelper.hide).toHaveBeenCalledTimes(1);
   expect(screen.root.findByType('AlertModal').props.body).toContain(
-    'password reset link',
+    'reset link will arrive',
   );
 });

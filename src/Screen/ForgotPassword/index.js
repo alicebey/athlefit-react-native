@@ -25,6 +25,16 @@ const ForgotPasswordScreen = ({route}) => {
   const [resetSent, setResetSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Firebase does not reveal whether an email has an account (email
+  // enumeration protection), so the message must not claim a link was sent.
+  const showResetRequested = sentTo => {
+    setResetSent(true);
+    setAlert({
+      title: 'Check your inbox',
+      body: `If an Athlefit account uses ${sentTo}, a reset link will arrive within a few minutes. Check the spam folder too, and make sure this is the email you signed up with.`,
+    });
+  };
+
   const sendResetEmail = async () => {
     if (isSubmitting) {
       return;
@@ -43,19 +53,11 @@ const ForgotPasswordScreen = ({route}) => {
     LoadingHelper.show();
     try {
       await auth().sendPasswordResetEmail(normalizedEmail);
-      setResetSent(true);
-      setAlert({
-        title: 'Check your inbox',
-        body: 'We sent a password reset link. Check your inbox and spam folder.',
-      });
+      showResetRequested(normalizedEmail);
     } catch (error) {
       console.log(error, 'error forgot password');
       if (error.code === 'auth/user-not-found') {
-        setResetSent(true);
-        setAlert({
-          title: 'Check your inbox',
-          body: 'If this email is registered, a password reset link will arrive shortly.',
-        });
+        showResetRequested(normalizedEmail);
       } else if (error.code === 'auth/too-many-requests') {
         setAlert({
           title: 'Try again later',

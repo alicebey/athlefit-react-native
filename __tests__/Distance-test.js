@@ -37,3 +37,22 @@ it('formats distances for people', () => {
   expect(formatDistance(2779.6)).toBe('2,780 km');
   expect(hasCoordinates({latitude: 0, longitude: 0})).toBe(false);
 });
+
+describe('venue images', () => {
+  const {sportPhoto, venueImageSource} = require('../src/Utils/VenueImage');
+
+  it('prefers the venue photo, then a photo of its sport', () => {
+    expect(venueImageSource({image_url: 'https://x/y.jpg'})).toEqual({
+      uri: 'https://x/y.jpg',
+    });
+    expect(venueImageSource({category: 'futsal'})).toBe(sportPhoto('futsal'));
+    expect(venueImageSource({sports: [{slug: 'tennis'}]})).toBe(
+      sportPhoto('tennis'),
+    );
+    expect(venueImageSource({category: 'futsal'}, 'golf')).toBe(
+      sportPhoto('golf'),
+    );
+    expect(sportPhoto('futsal')).not.toBe(sportPhoto('badminton'));
+    expect(sportPhoto('unknown')).toBe(sportPhoto(undefined));
+  });
+});

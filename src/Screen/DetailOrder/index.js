@@ -31,6 +31,7 @@ import {
   submitPayment,
 } from '../../Service/bookingService';
 import styles from './styles';
+import {venueImageSource} from '../../Utils/VenueImage';
 
 const Notice = ({icon, color = '#ADB5BD', title, children}) => (
   <View accessibilityLiveRegion="polite" style={styles.notice}>
@@ -425,11 +426,7 @@ const DetailOrder = ({route}) => {
           <View style={styles.hero}>
             <Image
               accessibilityLabel={`${booking.location_name} venue`}
-              source={
-                booking.image_url
-                  ? {uri: booking.image_url}
-                  : require('../../Assets/field.png')
-              }
+              source={venueImageSource(booking)}
               resizeMode="cover"
               style={styles.heroImage}
             />

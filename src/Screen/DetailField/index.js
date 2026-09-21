@@ -16,6 +16,7 @@ import Button from '../../Component/Button';
 import Text from '../../Component/Text';
 import {currencyFormatter} from '../../Utils/CurrencyFormatter';
 import styles from './styles';
+import {venueImageSource} from '../../Utils/VenueImage';
 
 const DetailField = ({route}) => {
   const navigation = useNavigation();
@@ -93,11 +94,7 @@ const DetailField = ({route}) => {
         <View style={styles.hero}>
           <Image
             accessibilityLabel={`${data.location_name} venue`}
-            source={
-              data.image_url
-                ? {uri: data.image_url}
-                : require('../../Assets/field.png')
-            }
+            source={venueImageSource(data)}
             resizeMode="cover"
             style={styles.heroImage}
           />

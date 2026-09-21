@@ -5,6 +5,7 @@ import Image from './Image';
 import BookingStatusPill from './BookingStatusPill';
 import {BOOKING_STATUS_LABELS} from '../Service/bookingService';
 import {VENUE_TIME_ZONE_LABEL, formatVenueTime} from '../Utils/VenueTime';
+import {venueImageSource} from '../Utils/VenueImage';
 
 // Booking summary card. Times are shown in venue time (WIB), not device time.
 const OrderCard = ({onPress, data}) => {
@@ -27,11 +28,8 @@ const OrderCard = ({onPress, data}) => {
         <Image
           accessible={false}
           resizeMode="cover"
-          source={
-            data.image_url
-              ? {uri: data.image_url}
-              : require('../Assets/field.png')
-          }
+          source={venueImageSource(data)}
+          style={styles.photo}
         />
       </View>
       <View style={styles.textContainer}>
@@ -66,6 +64,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
   },
   textContainer: {
     flex: 1,

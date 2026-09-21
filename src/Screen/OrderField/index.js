@@ -23,6 +23,7 @@ import {useSessionStore} from '../../Service/sessionStore';
 import {createBooking} from '../../Service/bookingService';
 import {getVenueAvailability} from '../../Service/venueService';
 import styles from './styles';
+import {venueImageSource} from '../../Utils/VenueImage';
 
 const DURATIONS = [1, 2, 3];
 const BOOKABLE_DAYS = 14;
@@ -269,11 +270,7 @@ const OrderField = ({route}) => {
         <View style={styles.hero}>
           <Image
             accessibilityLabel={`${location.location_name} venue`}
-            source={
-              location.image_url
-                ? {uri: location.image_url}
-                : require('../../Assets/field.png')
-            }
+            source={venueImageSource(location, sportSlug)}
             resizeMode="cover"
             style={styles.heroImage}
           />

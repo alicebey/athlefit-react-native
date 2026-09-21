@@ -3,6 +3,7 @@ import React from 'react';
 import Text from './Text';
 import Image from './Image';
 import {AirbnbRating} from 'react-native-ratings';
+import {venueImageSource} from '../Utils/VenueImage';
 
 // Global field card component for global usage with dynamic data
 const FieldCard = ({onPress, data}) => {
@@ -19,11 +20,8 @@ const FieldCard = ({onPress, data}) => {
         <Image
           accessible={false}
           resizeMode="cover"
-          source={
-            data?.image_url
-              ? {uri: data.image_url}
-              : require('../Assets/field.png')
-          }
+          source={venueImageSource(data)}
+          style={styles.photo}
         />
       </View>
       <View style={styles.textContainer}>
@@ -61,10 +59,14 @@ const styles = StyleSheet.create({
   image: {
     width: '38%',
     height: undefined,
-    aspectRatio: 16 / 9,
+    aspectRatio: 4 / 3,
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
   },
   textContainer: {
     flex: 1,
